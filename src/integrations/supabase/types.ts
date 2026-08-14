@@ -18,8 +18,10 @@ export type Database = {
         Row: {
           amount: number
           balance: number | null
+          bank_account_id: string | null
           company_id: string
           created_at: string
+          data_set_id: string | null
           doc_date: string | null
           doc_number: string
           doc_type: string | null
@@ -29,6 +31,8 @@ export type Database = {
           meta: Json
           party_name: string | null
           party_type: string | null
+          period_end: string | null
+          period_start: string | null
           reconciled_txn_id: string | null
           resolved_at: string | null
           resolved_by_email: string | null
@@ -38,8 +42,10 @@ export type Database = {
         Insert: {
           amount?: number
           balance?: number | null
+          bank_account_id?: string | null
           company_id: string
           created_at?: string
+          data_set_id?: string | null
           doc_date?: string | null
           doc_number: string
           doc_type?: string | null
@@ -49,6 +55,8 @@ export type Database = {
           meta?: Json
           party_name?: string | null
           party_type?: string | null
+          period_end?: string | null
+          period_start?: string | null
           reconciled_txn_id?: string | null
           resolved_at?: string | null
           resolved_by_email?: string | null
@@ -58,8 +66,10 @@ export type Database = {
         Update: {
           amount?: number
           balance?: number | null
+          bank_account_id?: string | null
           company_id?: string
           created_at?: string
+          data_set_id?: string | null
           doc_date?: string | null
           doc_number?: string
           doc_type?: string | null
@@ -69,6 +79,8 @@ export type Database = {
           meta?: Json
           party_name?: string | null
           party_type?: string | null
+          period_end?: string | null
+          period_start?: string | null
           reconciled_txn_id?: string | null
           resolved_at?: string | null
           resolved_by_email?: string | null
@@ -77,7 +89,57 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "accounting_records_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "accounting_records_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accounting_records_data_set_id_fkey"
+            columns: ["data_set_id"]
+            isOneToOne: false
+            referencedRelation: "data_sets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bank_account_companies: {
+        Row: {
+          bank_account_id: string
+          company_id: string
+          created_at: string
+          id: string
+        }
+        Insert: {
+          bank_account_id: string
+          company_id: string
+          created_at?: string
+          id?: string
+        }
+        Update: {
+          bank_account_id?: string
+          company_id?: string
+          created_at?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_account_companies_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_account_companies_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
@@ -141,6 +203,7 @@ export type Database = {
           category: string | null
           company_id: string
           created_at: string
+          data_set_id: string | null
           direction: string
           id: string
           import_batch_id: string | null
@@ -148,7 +211,10 @@ export type Database = {
           match_group_id: string | null
           meta: Json
           narration: string | null
+          period_end: string | null
+          period_start: string | null
           reconciled_record_id: string | null
+          rejection_reason: string | null
           resolved_at: string | null
           resolved_by_email: string | null
           status: string
@@ -164,6 +230,7 @@ export type Database = {
           category?: string | null
           company_id: string
           created_at?: string
+          data_set_id?: string | null
           direction?: string
           id?: string
           import_batch_id?: string | null
@@ -171,7 +238,10 @@ export type Database = {
           match_group_id?: string | null
           meta?: Json
           narration?: string | null
+          period_end?: string | null
+          period_start?: string | null
           reconciled_record_id?: string | null
+          rejection_reason?: string | null
           resolved_at?: string | null
           resolved_by_email?: string | null
           status?: string
@@ -187,6 +257,7 @@ export type Database = {
           category?: string | null
           company_id?: string
           created_at?: string
+          data_set_id?: string | null
           direction?: string
           id?: string
           import_batch_id?: string | null
@@ -194,7 +265,10 @@ export type Database = {
           match_group_id?: string | null
           meta?: Json
           narration?: string | null
+          period_end?: string | null
+          period_start?: string | null
           reconciled_record_id?: string | null
+          rejection_reason?: string | null
           resolved_at?: string | null
           resolved_by_email?: string | null
           status?: string
@@ -215,6 +289,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_transactions_data_set_id_fkey"
+            columns: ["data_set_id"]
+            isOneToOne: false
+            referencedRelation: "data_sets"
             referencedColumns: ["id"]
           },
           {
@@ -272,6 +353,63 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "company_members_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      data_sets: {
+        Row: {
+          bank_account_id: string
+          company_id: string
+          created_at: string
+          created_by_email: string | null
+          id: string
+          label: string
+          period_end: string | null
+          period_start: string | null
+          row_count: number
+          source: string
+          upload_timestamp: string
+        }
+        Insert: {
+          bank_account_id: string
+          company_id: string
+          created_at?: string
+          created_by_email?: string | null
+          id?: string
+          label: string
+          period_end?: string | null
+          period_start?: string | null
+          row_count?: number
+          source: string
+          upload_timestamp?: string
+        }
+        Update: {
+          bank_account_id?: string
+          company_id?: string
+          created_at?: string
+          created_by_email?: string | null
+          id?: string
+          label?: string
+          period_end?: string | null
+          period_start?: string | null
+          row_count?: number
+          source?: string
+          upload_timestamp?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "data_sets_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "data_sets_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
@@ -372,6 +510,7 @@ export type Database = {
           id: string
           party_score: number
           reference_score: number
+          rejection_reason: string | null
           side_score: number
           status: string
         }
@@ -386,6 +525,7 @@ export type Database = {
           id?: string
           party_score?: number
           reference_score?: number
+          rejection_reason?: string | null
           side_score?: number
           status?: string
         }
@@ -400,6 +540,7 @@ export type Database = {
           id?: string
           party_score?: number
           reference_score?: number
+          rejection_reason?: string | null
           side_score?: number
           status?: string
         }
@@ -427,11 +568,78 @@ export type Database = {
           },
         ]
       }
+      open_items: {
+        Row: {
+          amount: number
+          as_at_date: string
+          bank_account_id: string
+          company_id: string
+          created_at: string
+          direction: string
+          doc_ref: string | null
+          id: string
+          meta: Json
+          narration: string | null
+          party_name: string | null
+          source: string
+          status: string
+        }
+        Insert: {
+          amount?: number
+          as_at_date: string
+          bank_account_id: string
+          company_id: string
+          created_at?: string
+          direction?: string
+          doc_ref?: string | null
+          id?: string
+          meta?: Json
+          narration?: string | null
+          party_name?: string | null
+          source: string
+          status?: string
+        }
+        Update: {
+          amount?: number
+          as_at_date?: string
+          bank_account_id?: string
+          company_id?: string
+          created_at?: string
+          direction?: string
+          doc_ref?: string | null
+          id?: string
+          meta?: Json
+          narration?: string | null
+          party_name?: string | null
+          source?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "open_items_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "open_items_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      has_bank_account_access: {
+        Args: { _bank_account_id: string }
+        Returns: boolean
+      }
       is_company_member: { Args: { _company_id: string }; Returns: boolean }
     }
     Enums: {
