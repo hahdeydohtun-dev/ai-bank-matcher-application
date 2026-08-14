@@ -194,6 +194,69 @@ export type Database = {
           },
         ]
       }
+      bank_api_connections: {
+        Row: {
+          api_key: string | null
+          api_secret: string | null
+          auth_type: string
+          bank_account_id: string
+          company_id: string
+          created_at: string
+          enabled: boolean
+          endpoint_url: string
+          extra_headers: Json
+          id: string
+          last_fetched_at: string | null
+          provider_label: string | null
+          updated_at: string
+        }
+        Insert: {
+          api_key?: string | null
+          api_secret?: string | null
+          auth_type?: string
+          bank_account_id: string
+          company_id: string
+          created_at?: string
+          enabled?: boolean
+          endpoint_url: string
+          extra_headers?: Json
+          id?: string
+          last_fetched_at?: string | null
+          provider_label?: string | null
+          updated_at?: string
+        }
+        Update: {
+          api_key?: string | null
+          api_secret?: string | null
+          auth_type?: string
+          bank_account_id?: string
+          company_id?: string
+          created_at?: string
+          enabled?: boolean
+          endpoint_url?: string
+          extra_headers?: Json
+          id?: string
+          last_fetched_at?: string | null
+          provider_label?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_api_connections_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_api_connections_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bank_transactions: {
         Row: {
           ai_confidence: number | null
@@ -328,6 +391,56 @@ export type Database = {
         }
         Relationships: []
       }
+      company_invites: {
+        Row: {
+          accepted_at: string | null
+          accepted_by: string | null
+          company_id: string
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          invited_by: string
+          role: string
+          status: string
+          token: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          company_id: string
+          created_at?: string
+          email: string
+          expires_at?: string
+          id?: string
+          invited_by: string
+          role?: string
+          status?: string
+          token?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          company_id?: string
+          created_at?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          invited_by?: string
+          role?: string
+          status?: string
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_invites_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       company_members: {
         Row: {
           company_id: string
@@ -360,6 +473,56 @@ export type Database = {
           },
         ]
       }
+      company_settings: {
+        Row: {
+          aging_days: number
+          auto_threshold: number
+          bank_charge_auto_match: boolean
+          bank_charge_keywords: string[]
+          charge_tolerance: number
+          company_id: string
+          high_value_threshold: number
+          review_threshold: number
+          theme: string
+          updated_at: string
+          updated_by_email: string | null
+        }
+        Insert: {
+          aging_days?: number
+          auto_threshold?: number
+          bank_charge_auto_match?: boolean
+          bank_charge_keywords?: string[]
+          charge_tolerance?: number
+          company_id: string
+          high_value_threshold?: number
+          review_threshold?: number
+          theme?: string
+          updated_at?: string
+          updated_by_email?: string | null
+        }
+        Update: {
+          aging_days?: number
+          auto_threshold?: number
+          bank_charge_auto_match?: boolean
+          bank_charge_keywords?: string[]
+          charge_tolerance?: number
+          company_id?: string
+          high_value_threshold?: number
+          review_threshold?: number
+          theme?: string
+          updated_at?: string
+          updated_by_email?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_settings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       data_sets: {
         Row: {
           bank_account_id: string
@@ -367,6 +530,7 @@ export type Database = {
           created_at: string
           created_by_email: string | null
           id: string
+          idempotency_key: string | null
           label: string
           period_end: string | null
           period_start: string | null
@@ -380,6 +544,7 @@ export type Database = {
           created_at?: string
           created_by_email?: string | null
           id?: string
+          idempotency_key?: string | null
           label: string
           period_end?: string | null
           period_start?: string | null
@@ -393,6 +558,7 @@ export type Database = {
           created_at?: string
           created_by_email?: string | null
           id?: string
+          idempotency_key?: string | null
           label?: string
           period_end?: string | null
           period_start?: string | null
@@ -416,6 +582,57 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      erp_api_connections: {
+        Row: {
+          api_key: string | null
+          api_secret: string | null
+          auth_type: string
+          bank_account_id: string
+          company_id: string
+          created_at: string
+          enabled: boolean
+          endpoint_url: string
+          erp_system: string | null
+          extra_headers: Json
+          gl_account_code: string | null
+          id: string
+          last_fetched_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          api_key?: string | null
+          api_secret?: string | null
+          auth_type?: string
+          bank_account_id: string
+          company_id: string
+          created_at?: string
+          enabled?: boolean
+          endpoint_url: string
+          erp_system?: string | null
+          extra_headers?: Json
+          gl_account_code?: string | null
+          id?: string
+          last_fetched_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          api_key?: string | null
+          api_secret?: string | null
+          auth_type?: string
+          bank_account_id?: string
+          company_id?: string
+          created_at?: string
+          enabled?: boolean
+          endpoint_url?: string
+          erp_system?: string | null
+          extra_headers?: Json
+          gl_account_code?: string | null
+          id?: string
+          last_fetched_at?: string | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       import_batches: {
         Row: {
@@ -452,6 +669,120 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      import_mapping_presets: {
+        Row: {
+          company_id: string
+          created_at: string
+          created_by_email: string | null
+          id: string
+          kind: string
+          mapping: Json
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          created_by_email?: string | null
+          id?: string
+          kind?: string
+          mapping?: Json
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          created_by_email?: string | null
+          id?: string
+          kind?: string
+          mapping?: Json
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "import_mapping_presets_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      match_decisions: {
+        Row: {
+          accepted: boolean
+          accounting_record_id: string | null
+          amount_score: number
+          bank_transaction_id: string | null
+          company_id: string
+          confidence: number
+          created_at: string
+          date_score: number
+          decided_by_email: string | null
+          id: string
+          party_score: number
+          reference_score: number
+          side_score: number
+          source: string
+        }
+        Insert: {
+          accepted: boolean
+          accounting_record_id?: string | null
+          amount_score?: number
+          bank_transaction_id?: string | null
+          company_id: string
+          confidence?: number
+          created_at?: string
+          date_score?: number
+          decided_by_email?: string | null
+          id?: string
+          party_score?: number
+          reference_score?: number
+          side_score?: number
+          source?: string
+        }
+        Update: {
+          accepted?: boolean
+          accounting_record_id?: string | null
+          amount_score?: number
+          bank_transaction_id?: string | null
+          company_id?: string
+          confidence?: number
+          created_at?: string
+          date_score?: number
+          decided_by_email?: string | null
+          id?: string
+          party_score?: number
+          reference_score?: number
+          side_score?: number
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "match_decisions_accounting_record_id_fkey"
+            columns: ["accounting_record_id"]
+            isOneToOne: false
+            referencedRelation: "accounting_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_decisions_bank_transaction_id_fkey"
+            columns: ["bank_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "bank_transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_decisions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       match_groups: {
         Row: {
@@ -568,6 +899,53 @@ export type Database = {
           },
         ]
       }
+      matching_weights: {
+        Row: {
+          amount_weight: number
+          company_id: string
+          date_weight: number
+          party_weight: number
+          recalibrated_at: string
+          reference_weight: number
+          sample_size: number
+          side_weight: number
+          suggested_auto_threshold: number | null
+          suggested_review_threshold: number | null
+        }
+        Insert: {
+          amount_weight?: number
+          company_id: string
+          date_weight?: number
+          party_weight?: number
+          recalibrated_at?: string
+          reference_weight?: number
+          sample_size?: number
+          side_weight?: number
+          suggested_auto_threshold?: number | null
+          suggested_review_threshold?: number | null
+        }
+        Update: {
+          amount_weight?: number
+          company_id?: string
+          date_weight?: number
+          party_weight?: number
+          recalibrated_at?: string
+          reference_weight?: number
+          sample_size?: number
+          side_weight?: number
+          suggested_auto_threshold?: number | null
+          suggested_review_threshold?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "matching_weights_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       open_items: {
         Row: {
           amount: number
@@ -631,16 +1009,43 @@ export type Database = {
           },
         ]
       }
+      profiles: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      accept_company_invite: { Args: { _token: string }; Returns: string }
+      create_company_with_owner: {
+        Args: { _currency?: string; _name: string }
+        Returns: string
+      }
       has_bank_account_access: {
         Args: { _bank_account_id: string }
         Returns: boolean
       }
       is_company_member: { Args: { _company_id: string }; Returns: boolean }
+      set_company_member_role: {
+        Args: { _member_id: string; _role: string }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
