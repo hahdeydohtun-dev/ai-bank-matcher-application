@@ -1037,11 +1037,6 @@ export type Database = {
         Args: { _currency?: string; _name: string }
         Returns: string
       }
-      has_bank_account_access: {
-        Args: { _bank_account_id: string }
-        Returns: boolean
-      }
-      is_company_member: { Args: { _company_id: string }; Returns: boolean }
       set_company_member_role: {
         Args: { _member_id: string; _role: string }
         Returns: undefined
