@@ -332,7 +332,17 @@ function ReconciliationPage() {
       }
     }
     try {
+      // Carry forward any still-open items for this account so they are part
+      // of the bank/ledger matching lists (skipped once matched/reconciled).
+      if (accountId) {
+        try {
+          await syncOpenItems(companyId, accountId);
+        } catch {
+          /* open items are additive — never block the workspace load */
+        }
+      }
       const [recRows, txnRows, sugRows, batchRows] = await Promise.all([
+
         fetchAll<AccountingRecord>((from, to) => {
           let q = db
             .from("accounting_records")
