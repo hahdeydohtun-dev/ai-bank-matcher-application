@@ -389,7 +389,7 @@ function ReconciliationPage() {
   useEffect(() => {
     if (!companyId || !settings.liveSync) return;
     const channel = supabase
-      .channel(`recon-${companyId}`)
+      .channel(`recon-${companyId}-${Math.random().toString(36).slice(2)}`)
       .on(
         "postgres_changes",
         {

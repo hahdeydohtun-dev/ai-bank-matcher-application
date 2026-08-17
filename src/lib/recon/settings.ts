@@ -211,7 +211,7 @@ export function useSettings(
     })();
 
     const channel = supabase
-      .channel(`company-settings-${companyId}`)
+      .channel(`company-settings-${companyId}-${Math.random().toString(36).slice(2)}`)
       .on(
         "postgres_changes",
         {
