@@ -421,15 +421,23 @@ export function ImportCsvDialog({
 
     let batchId: string | null = null;
     let dataSetId: string | null = null;
+    let rowsToWrite = validRows;
     try {
-      const { data: existing } = await db
-        .from("data_sets")
-        .select("id, label")
-        .eq("idempotency_key", idempotencyKey)
-        .maybeSingle();
-      if (existing) {
+      // Only periods that still hold live rows block a re-import; stale
+      // markers left behind by a clear/reset are removed automatically.
+      const guard = await guardIngestPeriod(db, {
+        companyId,
+        bankAccountId: selectedBankAccountId,
+        source: format,
+        periodStart: effectiveStart,
+        periodEnd: effectiveEnd,
+      });
+      if (guard.cleaned) {
+        note(`Cleared ${guard.cleaned} stale data set marker(s) with no remaining rows.`);
+      }
+      if (guard.fullyCovered) {
         const message =
-          "This exact period was already ingested for this bank account from this source — nothing was duplicated.";
+          "This period is already loaded for this bank account from this source — nothing was duplicated. Clear the existing data set first to re-upload it.";
         note(message);
         setError(message);
         setStep(null);
@@ -447,11 +455,38 @@ export function ImportCsvDialog({
         );
         return;
       }
+      if (guard.covered.length) {
+        rowsToWrite = validRows.filter((row) => !isCovered(row.date, guard.covered));
+        const overlapped = validRows.length - rowsToWrite.length;
+        if (overlapped > 0) {
+          note(`Skipped ${overlapped} row(s) falling inside periods already imported.`);
+        }
+        if (!rowsToWrite.length) {
+          const message =
+            "Every row in this file falls inside a period that is already loaded — nothing was imported.";
+          note(message);
+          setError(message);
+          setStep(null);
+          persistRun(
+            {
+              status: "error",
+              step: "writing",
+              error: message,
+              rowsFetched: rows.length,
+              rowsValid: validRows.length,
+              rowsSkipped: skippedRows.length,
+              skipped: skippedDetail,
+            },
+            entries,
+          );
+          return;
+        }
+      }
 
       batchId = crypto.randomUUID();
       dataSetId = crypto.randomUUID();
       const { data: userData } = await supabase.auth.getUser();
-      note(`Writing ${validRows.length} row(s), skipping ${skippedRows.length}.`);
+      note(`Writing ${rowsToWrite.length} row(s), skipping ${skippedRows.length}.`);
 
       const { error: dsErr } = await db.from("data_sets").insert({
         id: dataSetId,
