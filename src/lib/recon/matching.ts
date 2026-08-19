@@ -179,6 +179,38 @@ export type MatchResult = {
   category: Category;
 };
 
+/**
+ * Per-record precomputation. Tokenising every document number and party name
+ * once (instead of once per transaction/record pair) is what keeps a
+ * 2,000 x 2,000 match run fast.
+ */
+type PreparedRecord = {
+  record: AccountingRecord;
+  amount: number;
+  dateMs: number;
+  side: string;
+  isCharge: boolean;
+};
+
+function prepareRecords(
+  records: AccountingRecord[],
+  keywords: string[],
+  chargeMatching: boolean,
+): PreparedRecord[] {
+  return records.map((record) => ({
+    record,
+    amount: Math.abs(Number(record.amount)) || 0,
+    dateMs: record.doc_date ? new Date(record.doc_date).getTime() : NaN,
+    side: record.side,
+    isCharge: chargeMatching
+      ? isBankCharge(
+          `${record.party_name ?? ""} ${record.doc_type ?? ""} ${record.doc_number ?? ""}`,
+          keywords,
+        )
+      : false,
+  }));
+}
+
 export function runMatching(
   transactions: BankTransaction[],
   records: AccountingRecord[],
@@ -190,14 +222,45 @@ export function runMatching(
   const highValue = options.highValueThreshold ?? HIGH_VALUE_THRESHOLD;
   const aging = options.agingDays ?? AGING_DAYS;
 
+  const w = { ...DEFAULT_SCORE_WEIGHTS, ...options.weights };
+  const keywords = options.chargeKeywords ?? DEFAULT_CHARGE_KEYWORDS;
+  const chargeMatching = options.bankChargeAutoMatch ?? true;
+  const prepared = prepareRecords(records, keywords, chargeMatching);
+
   const best = transactions.map((txn) => {
+    const txnAmount = Math.abs(Number(txn.amount)) || 0;
+    const txnDateMs = txn.txn_date ? new Date(txn.txn_date).getTime() : NaN;
+    const expectedSide = txn.direction === "credit" ? "debit" : "credit";
+    const txnIsCharge = chargeMatching
+      ? isBankCharge(`${txn.narration ?? ""} ${txn.txn_ref ?? ""}`, keywords)
+      : false;
+
     let bestRecord: AccountingRecord | null = null;
     let bestScores: Scores | null = null;
-    for (const record of records) {
-      const scores = scoreCandidate(txn, record, options);
+
+    for (const cand of prepared) {
+      // Cheap, string-free bound first: reference/party can add at most
+      // their full weight, so anything that still can't beat the current
+      // best is skipped before any tokenising happens.
+      const base = cand.amount || txnAmount;
+      const amount = base
+        ? Math.max(0, 100 - Math.min(100, (Math.abs(txnAmount - cand.amount) / base) * 800))
+        : 100;
+      const days =
+        Number.isNaN(txnDateMs) || Number.isNaN(cand.dateMs)
+          ? 999
+          : Math.round(Math.abs(txnDateMs - cand.dateMs) / 86_400_000);
+      const date = Math.max(0, 100 - days * 15);
+      const side = expectedSide === cand.side ? 100 : 30;
+
+      let upper = amount * w.amount + 100 * w.reference + date * w.date + 100 * w.party + side * w.side;
+      if (txnIsCharge && cand.isCharge) upper = Math.max(upper, 92);
+      if (bestScores && upper <= bestScores.confidence) continue;
+
+      const scores = scoreCandidate(txn, cand.record, options);
       if (!bestScores || scores.confidence > bestScores.confidence) {
         bestScores = scores;
-        bestRecord = record;
+        bestRecord = cand.record;
       }
     }
     return { transaction: txn, record: bestRecord, scores: bestScores };

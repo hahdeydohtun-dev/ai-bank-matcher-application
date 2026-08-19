@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { extractRows, flattenRow, pick, toDate, toNumber } from "@/lib/recon/bankApi.parse";
+import { guardIngestPeriod, isCovered } from "@/lib/recon/ingestGuard";
 
 export type FetchStatementInput = {
   companyId: string;
@@ -203,30 +204,51 @@ export const fetchBankStatement = createServerFn({ method: "POST" })
     const email = userRow?.user?.email ?? null;
 
     const idempotencyKey = `${companyId}|${bankAccountId}|bank_api|bank|${periodStart}|${periodEnd}`;
-    const { data: existingSet } = await supabase
-      .from("data_sets")
-      .select("id")
-      .eq("idempotency_key", idempotencyKey)
-      .maybeSingle();
-    if (existingSet) {
+
+    // Periods only block a re-fetch while their rows still exist; overlapping
+    // dates are skipped so an updated feed can top up the fresh days.
+    const guard = await guardIngestPeriod(supabase, {
+      companyId,
+      bankAccountId,
+      source: "bank",
+      periodStart,
+      periodEnd,
+    });
+    if (guard.fullyCovered) {
       return {
         inserted: 0,
         skipped,
-        dataSetId: existingSet.id as string,
+        dataSetId: null as string | null,
         duplicate: true,
         rows: [] as Record<string, string>[],
       };
     }
+    const freshRows = guard.covered.length
+      ? rows.filter((r) => !isCovered(r.txn_date, guard.covered))
+      : rows;
+    skipped += rows.length - freshRows.length;
+    if (!freshRows.length) {
+      return {
+        inserted: 0,
+        skipped,
+        dataSetId: null as string | null,
+        duplicate: true,
+        rows: [] as Record<string, string>[],
+      };
+    }
+    const dates = freshRows.map((r) => r.txn_date).filter(Boolean) as string[];
+    const setStart = dates.length ? dates.reduce((a, b) => (a < b ? a : b)) : periodStart;
+    const setEnd = dates.length ? dates.reduce((a, b) => (a > b ? a : b)) : periodEnd;
 
     const { error: dsErr } = await supabase.from("data_sets").insert({
       id: dataSetId,
       company_id: companyId,
       bank_account_id: bankAccountId,
       source: "bank",
-      period_start: periodStart,
-      period_end: periodEnd,
+      period_start: setStart,
+      period_end: setEnd,
       label,
-      row_count: rows.length,
+      row_count: freshRows.length,
       created_by_email: email,
       idempotency_key: idempotencyKey,
     });
@@ -238,14 +260,14 @@ export const fetchBankStatement = createServerFn({ method: "POST" })
       bank_account_id: bankAccountId,
       source: "bank",
       label,
-      row_count: rows.length,
+      row_count: freshRows.length,
       created_by_email: email,
     });
     if (batchErr) throw new Error(batchErr.message);
 
     try {
-      for (let i = 0; i < rows.length; i += 500) {
-        const { error } = await supabase.from("bank_transactions").insert(rows.slice(i, i + 500));
+      for (let i = 0; i < freshRows.length; i += 500) {
+        const { error } = await supabase.from("bank_transactions").insert(freshRows.slice(i, i + 500));
         if (error) throw new Error(error.message);
       }
     } catch (err) {
@@ -261,7 +283,7 @@ export const fetchBankStatement = createServerFn({ method: "POST" })
 
     void userId;
     return {
-      inserted: rows.length,
+      inserted: freshRows.length,
       skipped,
       dataSetId,
       duplicate: false,

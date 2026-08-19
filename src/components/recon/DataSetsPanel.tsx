@@ -77,6 +77,14 @@ export function DataSetsPanel({
         .eq("source", source);
       if (bankAccountId) batchQuery = batchQuery.eq("bank_account_id", bankAccountId);
       await batchQuery;
+      // Drop the period markers too so the same period can be re-imported.
+      let setQuery = db
+        .from("data_sets")
+        .delete()
+        .eq("company_id", companyId)
+        .eq("source", source);
+      if (bankAccountId) setQuery = setQuery.eq("bank_account_id", bankAccountId);
+      await setQuery;
       onChanged();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not clear the data set");
