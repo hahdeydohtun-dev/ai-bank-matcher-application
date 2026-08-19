@@ -32,6 +32,7 @@ import {
   type ImportRun,
   type StepKey,
 } from "@/lib/recon/importPresets";
+import { guardIngestPeriod, isCovered } from "@/lib/recon/ingestGuard";
 
 type Source = "csv" | "bank_api" | "erp_api";
 
@@ -488,15 +489,23 @@ export function ImportCsvDialog({
       const { data: userData } = await supabase.auth.getUser();
       note(`Writing ${rowsToWrite.length} row(s), skipping ${skippedRows.length}.`);
 
+      const writtenDates = rowsToWrite.map((r) => r.date).filter(Boolean) as string[];
+      const setStart = writtenDates.length
+        ? writtenDates.reduce((a, b) => (a < b ? a : b))
+        : effectiveStart;
+      const setEnd = writtenDates.length
+        ? writtenDates.reduce((a, b) => (a > b ? a : b))
+        : effectiveEnd;
+
       const { error: dsErr } = await db.from("data_sets").insert({
         id: dataSetId,
         company_id: companyId,
         bank_account_id: selectedBankAccountId,
         source: format,
-        period_start: effectiveStart,
-        period_end: effectiveEnd,
+        period_start: setStart,
+        period_end: setEnd,
         label: fileName || `${format} import`,
-        row_count: validRows.length,
+        row_count: rowsToWrite.length,
         created_by_email: userData.user?.email ?? null,
         idempotency_key: idempotencyKey,
       });
@@ -508,13 +517,13 @@ export function ImportCsvDialog({
         bank_account_id: selectedBankAccountId,
         source: format,
         label: fileName || `${format} import`,
-        row_count: validRows.length,
+        row_count: rowsToWrite.length,
         created_by_email: userData.user?.email ?? null,
       });
       if (batchErr) throw batchErr;
 
       if (format === "bank") {
-        const payload = validRows.map((row) => ({
+        const payload = rowsToWrite.map((row) => ({
           company_id: companyId,
           bank_account_id: selectedBankAccountId,
           txn_ref: row.values.txn_ref,
@@ -527,8 +536,8 @@ export function ImportCsvDialog({
           status: "unreconciled",
           import_batch_id: batchId,
           data_set_id: dataSetId,
-          period_start: effectiveStart,
-          period_end: effectiveEnd,
+          period_start: setStart,
+          period_end: setEnd,
           meta: row.meta,
         }));
         for (let i = 0; i < payload.length; i += 500) {
@@ -538,7 +547,7 @@ export function ImportCsvDialog({
           if (err) throw err;
         }
       } else {
-        const payload = validRows.map((row) => ({
+        const payload = rowsToWrite.map((row) => ({
           company_id: companyId,
           bank_account_id: selectedBankAccountId,
           doc_type: row.values.doc_type || null,
@@ -552,8 +561,8 @@ export function ImportCsvDialog({
           status: "open",
           import_batch_id: batchId,
           data_set_id: dataSetId,
-          period_start: effectiveStart,
-          period_end: effectiveEnd,
+          period_start: setStart,
+          period_end: setEnd,
           meta: row.meta,
         }));
         const { error: err } = await db
@@ -575,7 +584,7 @@ export function ImportCsvDialog({
           rowsFetched: rows.length,
           rowsValid: validRows.length,
           rowsSkipped: skippedRows.length,
-          rowsInserted: validRows.length,
+          rowsInserted: rowsToWrite.length,
           skipped: skippedDetail,
         },
         entries,
