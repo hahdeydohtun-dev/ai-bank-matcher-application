@@ -27,6 +27,7 @@ import { DataSetsPanel } from "@/components/recon/DataSetsPanel";
 import { MatchBoard } from "@/components/recon/MatchBoard";
 import { CreateEntityDialog, type CreateMode } from "@/components/recon/CreateEntityDialog";
 import { RejectReasonDialog, type RejectPrompt } from "@/components/recon/RejectReasonDialog";
+import { syncOpenItems } from "@/lib/recon/openItemSync";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/reconciliation")({
