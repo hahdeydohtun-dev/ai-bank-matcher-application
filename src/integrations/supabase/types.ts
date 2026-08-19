@@ -1033,6 +1033,16 @@ export type Database = {
     }
     Functions: {
       accept_company_invite: { Args: { _token: string }; Returns: string }
+      apply_match_results: { Args: { _rows: Json }; Returns: number }
+      bulk_resolve_matches: {
+        Args: {
+          _accept: boolean
+          _email?: string
+          _reason?: string
+          _rows: Json
+        }
+        Returns: number
+      }
       create_company_with_owner: {
         Args: { _currency?: string; _name: string }
         Returns: string
