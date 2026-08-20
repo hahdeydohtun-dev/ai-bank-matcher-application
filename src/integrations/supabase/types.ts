@@ -482,6 +482,7 @@ export type Database = {
           charge_tolerance: number
           company_id: string
           high_value_threshold: number
+          report_tolerance: number
           review_threshold: number
           theme: string
           updated_at: string
@@ -495,6 +496,7 @@ export type Database = {
           charge_tolerance?: number
           company_id: string
           high_value_threshold?: number
+          report_tolerance?: number
           review_threshold?: number
           theme?: string
           updated_at?: string
@@ -508,6 +510,7 @@ export type Database = {
           charge_tolerance?: number
           company_id?: string
           high_value_threshold?: number
+          report_tolerance?: number
           review_threshold?: number
           theme?: string
           updated_at?: string
@@ -1026,6 +1029,258 @@ export type Database = {
           id?: string
         }
         Relationships: []
+      }
+      reconciliation_report_audit: {
+        Row: {
+          action: string
+          actor_email: string | null
+          company_id: string
+          created_at: string
+          id: string
+          new_value: Json | null
+          previous_value: Json | null
+          reason: string | null
+          report_id: string | null
+        }
+        Insert: {
+          action: string
+          actor_email?: string | null
+          company_id: string
+          created_at?: string
+          id?: string
+          new_value?: Json | null
+          previous_value?: Json | null
+          reason?: string | null
+          report_id?: string | null
+        }
+        Update: {
+          action?: string
+          actor_email?: string | null
+          company_id?: string
+          created_at?: string
+          id?: string
+          new_value?: Json | null
+          previous_value?: Json | null
+          reason?: string | null
+          report_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reconciliation_report_audit_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reconciliation_report_audit_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "reconciliation_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reconciliation_report_items: {
+        Row: {
+          amount: number
+          category: string
+          company_id: string
+          created_at: string
+          description: string | null
+          exception_status: string
+          excluded: boolean
+          explanation: string | null
+          id: string
+          item_date: string | null
+          notes: string | null
+          reference: string | null
+          report_id: string
+          reviewer_comment: string | null
+          source: string
+          source_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount?: number
+          category: string
+          company_id: string
+          created_at?: string
+          description?: string | null
+          exception_status?: string
+          excluded?: boolean
+          explanation?: string | null
+          id?: string
+          item_date?: string | null
+          notes?: string | null
+          reference?: string | null
+          report_id: string
+          reviewer_comment?: string | null
+          source: string
+          source_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          category?: string
+          company_id?: string
+          created_at?: string
+          description?: string | null
+          exception_status?: string
+          excluded?: boolean
+          explanation?: string | null
+          id?: string
+          item_date?: string | null
+          notes?: string | null
+          reference?: string | null
+          report_id?: string
+          reviewer_comment?: string | null
+          source?: string
+          source_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reconciliation_report_items_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reconciliation_report_items_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "reconciliation_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reconciliation_reports: {
+        Row: {
+          adjusted_bank_balance: number
+          adjusted_book_balance: number
+          approved_at: string | null
+          approved_by: string | null
+          as_of_date: string
+          bank_account_id: string
+          bank_credits_not_in_ledger: number
+          bank_debits_not_in_ledger: number
+          bank_statement_balance: number
+          bank_txn_count: number
+          change_reason: string | null
+          company_id: string
+          created_at: string
+          currency: string
+          finalized_at: string | null
+          finalized_by: string | null
+          gl_balance: number
+          id: string
+          ledger_credits_not_in_bank: number
+          ledger_debits_not_in_bank: number
+          ledger_txn_count: number
+          matched_count: number
+          period_end: string | null
+          period_start: string | null
+          prepared_at: string
+          prepared_by: string | null
+          reconciliation_id: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          tolerance: number
+          unreconciled_difference: number
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          adjusted_bank_balance?: number
+          adjusted_book_balance?: number
+          approved_at?: string | null
+          approved_by?: string | null
+          as_of_date: string
+          bank_account_id: string
+          bank_credits_not_in_ledger?: number
+          bank_debits_not_in_ledger?: number
+          bank_statement_balance?: number
+          bank_txn_count?: number
+          change_reason?: string | null
+          company_id: string
+          created_at?: string
+          currency?: string
+          finalized_at?: string | null
+          finalized_by?: string | null
+          gl_balance?: number
+          id?: string
+          ledger_credits_not_in_bank?: number
+          ledger_debits_not_in_bank?: number
+          ledger_txn_count?: number
+          matched_count?: number
+          period_end?: string | null
+          period_start?: string | null
+          prepared_at?: string
+          prepared_by?: string | null
+          reconciliation_id: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          tolerance?: number
+          unreconciled_difference?: number
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          adjusted_bank_balance?: number
+          adjusted_book_balance?: number
+          approved_at?: string | null
+          approved_by?: string | null
+          as_of_date?: string
+          bank_account_id?: string
+          bank_credits_not_in_ledger?: number
+          bank_debits_not_in_ledger?: number
+          bank_statement_balance?: number
+          bank_txn_count?: number
+          change_reason?: string | null
+          company_id?: string
+          created_at?: string
+          currency?: string
+          finalized_at?: string | null
+          finalized_by?: string | null
+          gl_balance?: number
+          id?: string
+          ledger_credits_not_in_bank?: number
+          ledger_debits_not_in_bank?: number
+          ledger_txn_count?: number
+          matched_count?: number
+          period_end?: string | null
+          period_start?: string | null
+          prepared_at?: string
+          prepared_by?: string | null
+          reconciliation_id?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          tolerance?: number
+          unreconciled_difference?: number
+          updated_at?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reconciliation_reports_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reconciliation_reports_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
