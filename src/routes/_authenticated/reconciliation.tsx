@@ -699,30 +699,81 @@ function ReconciliationPage() {
     }
   }
 
+  // One round trip for the whole batch: the bulk_resolve_matches RPC updates
+  // transactions, ledger records and suggestions server-side, then we reload once.
+  async function bulkResolve(
+    txns: BankTransaction[],
+    accept: boolean,
+    label: string,
+    reason?: string | null,
+  ) {
+    const entries: NonNullable<typeof lastBulk>["entries"] = [];
+    const rows: { txn_id: string; record_id: string | null }[] = [];
+    for (const txn of txns) {
+      entries.push(snapshotFor(txn));
+      const suggestion = suggestionMap[txn.id];
+      rows.push({
+        txn_id: txn.id,
+        record_id: suggestion?.accounting_record_id ?? txn.reconciled_record_id ?? null,
+      });
+    }
+    if (!rows.length) return 0;
+
+    const { error: err } = await db.rpc("bulk_resolve_matches", {
+      _rows: rows,
+      _accept: accept,
+      _email: email || null,
+      _reason: accept ? null : reason?.trim() || null,
+    });
+    if (err) throw err;
+
+    // Feed the adaptive weight learner without blocking the UI.
+    for (const txn of txns) {
+      const suggestion = suggestionMap[txn.id];
+      const recordId = suggestion?.accounting_record_id ?? txn.reconciled_record_id ?? null;
+      const record = recordId ? recordMap[recordId] : null;
+      if (!record) continue;
+      void logMatchDecision({
+        companyId,
+        txn,
+        record,
+        accepted: accept,
+        source: suggestion ? "suggestion" : "manual",
+        decidedByEmail: email || null,
+        scores: suggestion
+          ? {
+              amount: suggestion.amount_score,
+              reference: suggestion.reference_score,
+              date: suggestion.date_score,
+              party: suggestion.party_score,
+              side: suggestion.side_score,
+              confidence: suggestion.confidence,
+            }
+          : null,
+      });
+    }
+
+    setLastBulk({ label: `${label} (${entries.length})`, entries });
+    await loadData();
+    return entries.length;
+  }
+
   async function bulkApproveAuto() {
     setRunning(true);
-    const entries: NonNullable<typeof lastBulk>["entries"] = [];
+    setError(null);
     const unreconciled = scoped.filter((t) => t.status === "unreconciled");
     const eligible = unreconciled.filter((t) => t.category === "auto");
     const skipped = unreconciled.length - eligible.length;
     try {
-      for (const txn of eligible) {
-        entries.push(snapshotFor(txn));
-
-        await resolve(txn, true);
-      }
-      if (entries.length) {
-        setLastBulk({ label: `Bulk Approve Auto (${entries.length})`, entries });
-      }
-      toast.success(
-        `Auto-approved ${entries.length} suggestion${entries.length === 1 ? "" : "s"}`,
-        {
-          description:
-            skipped > 0
-              ? `${skipped} skipped — below auto-match confidence threshold`
-              : "All eligible suggestions approved",
-        },
-      );
+      const count = await bulkResolve(eligible, true, "Bulk Approve Auto");
+      toast.success(`Auto-approved ${count} suggestion${count === 1 ? "" : "s"}`, {
+        description:
+          skipped > 0
+            ? `${skipped} skipped — below auto-match confidence threshold`
+            : "All eligible suggestions approved",
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Bulk approve failed");
     } finally {
       setRunning(false);
     }
@@ -730,26 +781,19 @@ function ReconciliationPage() {
 
   async function bulkResolveSelected(txnIds: string[], accept: boolean, reason?: string | null) {
     setRunning(true);
-    const entries: NonNullable<typeof lastBulk>["entries"] = [];
+    setError(null);
     try {
-      for (const id of txnIds) {
-        const txn = transactions.find((t) => t.id === id);
-        if (!txn) continue;
-        entries.push(snapshotFor(txn));
-
-        await resolve(txn, accept, undefined, reason);
-      }
-
-      if (entries.length) {
-        setLastBulk({
-          label: `${accept ? "Accept" : "Reject"} selected (${entries.length})`,
-          entries,
-        });
-      }
+      const txns = txnIds
+        .map((id) => transactions.find((t) => t.id === id))
+        .filter((t): t is BankTransaction => Boolean(t));
+      await bulkResolve(txns, accept, accept ? "Accept selected" : "Reject selected", reason);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Bulk update failed");
     } finally {
       setRunning(false);
     }
   }
+
 
   async function undoLastBulk() {
     if (!lastBulk || !lastBulk.entries.length) return;
