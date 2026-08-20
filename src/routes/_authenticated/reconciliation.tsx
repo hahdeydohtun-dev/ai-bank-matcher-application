@@ -545,17 +545,16 @@ function ReconciliationPage() {
         if (sErr) throw sErr;
       }
 
-      await Promise.all(
-        results.map((r) =>
-          db
-            .from("bank_transactions")
-            .update({
-              category: r.category,
-              ai_confidence: Number((r.scores?.confidence ?? 0).toFixed(2)),
-            })
-            .eq("id", r.transaction.id),
-        ),
-      );
+      const updateRows = results.map((r) => ({
+        id: r.transaction.id,
+        category: r.category,
+        confidence: Number((r.scores?.confidence ?? 0).toFixed(2)),
+      }));
+      if (updateRows.length) {
+        const { error: uErr } = await db.rpc("apply_match_results", { _rows: updateRows });
+        if (uErr) throw uErr;
+      }
+
 
       await loadData();
     } catch (err) {
