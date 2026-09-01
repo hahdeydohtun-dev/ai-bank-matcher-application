@@ -27,7 +27,11 @@ import { DataSetsPanel } from "@/components/recon/DataSetsPanel";
 import { MatchBoard } from "@/components/recon/MatchBoard";
 import { CreateEntityDialog, type CreateMode } from "@/components/recon/CreateEntityDialog";
 import { RejectReasonDialog, type RejectPrompt } from "@/components/recon/RejectReasonDialog";
-import { syncOpenItems } from "@/lib/recon/openItemSync";
+import {
+  syncOpenItems,
+  isOpenItemRef,
+  OPEN_ITEM_REF_PREFIX,
+} from "@/lib/recon/openItemSync";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/reconciliation")({
@@ -104,6 +108,9 @@ function ReconciliationPage() {
   const [importOpen, setImportOpen] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetFrom, setResetFrom] = useState("");
+  const [resetTo, setResetTo] = useState("");
   const [live, setLive] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [matchWeightsRow, setMatchWeightsRow] = useState<MatchingWeightsRow | null>(null);
@@ -919,49 +926,111 @@ function ReconciliationPage() {
   }
 
   async function resetWorkspace() {
-    if (
-      settings.confirmDestructive &&
-      !window.confirm(
-        "Reset clears AI categories, confidence, merges and suggestions for the whole shared workspace. Continue?",
-      )
-    )
+    if (!accountId) {
+      setError("Select a bank account before resetting.");
       return;
+    }
+    setResetFrom(fromDate);
+    setResetTo(toDate);
+    setResetOpen(true);
+  }
+
+  async function runReset(from: string, to: string) {
+    if (!accountId) return;
+    setResetOpen(false);
     setRunning(true);
     setError(null);
     try {
-      const { error: tErr } = await db
-        .from("bank_transactions")
-        .update({
-          status: "unreconciled",
-          category: null,
-          ai_confidence: null,
-          reconciled_record_id: null,
-          match_group_id: null,
-          resolved_by_email: null,
-          resolved_at: null,
-        })
-        .eq("company_id", companyId)
-        .eq("manually_reconciled", false);
-      if (tErr) throw tErr;
+      // Scope every clear to the selected account (and period when given), so
+      // other accounts / periods keep their reconciliation.
+      const txnQuery = () => {
+        let q = db
+          .from("bank_transactions")
+          .select("id, txn_ref, match_group_id")
+          .eq("company_id", companyId)
+          .eq("bank_account_id", accountId);
+        if (from) q = q.gte("txn_date", from);
+        if (to) q = q.lte("txn_date", to);
+        return q;
+      };
+      const recQuery = () => {
+        let q = db
+          .from("accounting_records")
+          .select("id, doc_number, match_group_id")
+          .eq("company_id", companyId)
+          .eq("bank_account_id", accountId);
+        if (from) q = q.gte("doc_date", from);
+        if (to) q = q.lte("doc_date", to);
+        return q;
+      };
 
-      await db
-        .from("accounting_records")
-        .update({
-          status: "open",
-          match_group_id: null,
-          reconciled_txn_id: null,
-          resolved_by_email: null,
-          resolved_at: null,
-        })
-        .eq("company_id", companyId);
+      const [txnRes, recRes] = await Promise.all([txnQuery(), recQuery()]);
+      const txnRows = (txnRes.data ?? []) as {
+        id: string;
+        txn_ref: string;
+        match_group_id: string | null;
+      }[];
+      const recRows = (recRes.data ?? []) as {
+        id: string;
+        doc_number: string;
+        match_group_id: string | null;
+      }[];
+      const txnIds = txnRows.map((r) => r.id);
+      const recIds = recRows.map((r) => r.id);
 
-      await db.from("match_groups").delete().eq("company_id", companyId);
+      if (txnIds.length) {
+        const { error: tErr } = await db
+          .from("bank_transactions")
+          .update({
+            status: "unreconciled",
+            category: null,
+            ai_confidence: null,
+            reconciled_record_id: null,
+            match_group_id: null,
+            manually_reconciled: false,
+            resolved_by_email: null,
+            resolved_at: null,
+            rejection_reason: null,
+          })
+          .in("id", txnIds);
+        if (tErr) throw tErr;
+      }
 
-      const { error: sErr } = await db
-        .from("match_suggestions")
-        .delete()
-        .eq("company_id", companyId);
-      if (sErr) throw sErr;
+      if (recIds.length) {
+        const { error: rErr } = await db
+          .from("accounting_records")
+          .update({
+            status: "open",
+            match_group_id: null,
+            reconciled_txn_id: null,
+            resolved_by_email: null,
+            resolved_at: null,
+          })
+          .in("id", recIds);
+        if (rErr) throw rErr;
+      }
+
+      const groupIds = Array.from(
+        new Set(
+          [...txnRows, ...recRows].map((r) => r.match_group_id).filter(Boolean) as string[],
+        ),
+      );
+      if (groupIds.length) await db.from("match_groups").delete().in("id", groupIds);
+
+      if (txnIds.length) {
+        const { error: sErr } = await db
+          .from("match_suggestions")
+          .delete()
+          .in("bank_transaction_id", txnIds);
+        if (sErr) throw sErr;
+      }
+
+      // Re-open any carried-forward open items whose mirror rows were cleared.
+      const openIds = [...txnRows.map((r) => r.txn_ref), ...recRows.map((r) => r.doc_number)]
+        .filter((ref) => isOpenItemRef(ref))
+        .map((ref) => ref.slice(OPEN_ITEM_REF_PREFIX.length));
+      if (openIds.length)
+        await db.from("open_items").update({ status: "open" }).in("id", openIds);
 
       setActiveStat("total");
       await loadData();
@@ -971,6 +1040,7 @@ function ReconciliationPage() {
       setRunning(false);
     }
   }
+
 
   async function signOut() {
     await supabase.auth.signOut();
@@ -1003,11 +1073,18 @@ function ReconciliationPage() {
               Switch company
             </Link>
             <Link
+              to="/reports"
+              className="rounded-md border border-border-strong px-2 py-1 hover:border-primary hover:text-primary"
+            >
+              Reports
+            </Link>
+            <Link
               to="/control-panel"
               className="rounded-md border border-border-strong px-2 py-1 hover:border-primary hover:text-primary"
             >
               Control panel
             </Link>
+
             <button
               onClick={signOut}
               className="rounded-md border border-border-strong px-2 py-1 hover:border-destructive hover:text-destructive"
@@ -1385,6 +1462,73 @@ function ReconciliationPage() {
           }
         }}
       />
+
+      {resetOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="w-full max-w-md rounded-lg border border-border-strong bg-card shadow-xl">
+            <div className="border-b border-border-strong px-4 py-3">
+              <h2 className="text-sm font-semibold">Reset reconciliation</h2>
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                Clears every match (manual, auto and AI-suggested) for{" "}
+                <span className="font-medium text-foreground">
+                  {account ? `${account.bank_name} · ${account.account_number}` : "this account"}
+                </span>{" "}
+                only. Leave the dates empty to reset all periods on this account.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-3 px-4 py-3">
+              <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                From
+                <input
+                  type="date"
+                  value={resetFrom}
+                  onChange={(e) => setResetFrom(e.target.value)}
+                  className="mt-1 w-full rounded-md border border-border-strong bg-background px-2 py-1.5 text-xs outline-none focus:border-primary"
+                />
+              </label>
+              <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                To
+                <input
+                  type="date"
+                  value={resetTo}
+                  onChange={(e) => setResetTo(e.target.value)}
+                  className="mt-1 w-full rounded-md border border-border-strong bg-background px-2 py-1.5 text-xs outline-none focus:border-primary"
+                />
+              </label>
+            </div>
+            <div className="flex items-center justify-end gap-2 border-t border-border-strong px-4 py-3">
+              <button
+                type="button"
+                onClick={() => setResetOpen(false)}
+                className="rounded-md border border-border-strong px-3 py-1.5 text-[11px] font-semibold hover:bg-muted"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (
+                    settings.confirmDestructive &&
+                    !window.confirm(
+                      "This clears all reconciliation for the selected account and period. Continue?",
+                    )
+                  )
+                    return;
+                  void runReset(resetFrom, resetTo);
+                }}
+                className="rounded-md bg-destructive px-3 py-1.5 text-[11px] font-semibold text-destructive-foreground hover:opacity-90"
+              >
+                Reset period
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
+
   );
 }
