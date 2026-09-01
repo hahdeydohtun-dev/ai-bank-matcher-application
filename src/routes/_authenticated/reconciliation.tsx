@@ -1073,11 +1073,18 @@ function ReconciliationPage() {
               Switch company
             </Link>
             <Link
+              to="/reports"
+              className="rounded-md border border-border-strong px-2 py-1 hover:border-primary hover:text-primary"
+            >
+              Reports
+            </Link>
+            <Link
               to="/control-panel"
               className="rounded-md border border-border-strong px-2 py-1 hover:border-primary hover:text-primary"
             >
               Control panel
             </Link>
+
             <button
               onClick={signOut}
               className="rounded-md border border-border-strong px-2 py-1 hover:border-destructive hover:text-destructive"
