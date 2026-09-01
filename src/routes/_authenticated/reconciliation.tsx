@@ -919,49 +919,111 @@ function ReconciliationPage() {
   }
 
   async function resetWorkspace() {
-    if (
-      settings.confirmDestructive &&
-      !window.confirm(
-        "Reset clears AI categories, confidence, merges and suggestions for the whole shared workspace. Continue?",
-      )
-    )
+    if (!accountId) {
+      setError("Select a bank account before resetting.");
       return;
+    }
+    setResetFrom(fromDate);
+    setResetTo(toDate);
+    setResetOpen(true);
+  }
+
+  async function runReset(from: string, to: string) {
+    if (!accountId) return;
+    setResetOpen(false);
     setRunning(true);
     setError(null);
     try {
-      const { error: tErr } = await db
-        .from("bank_transactions")
-        .update({
-          status: "unreconciled",
-          category: null,
-          ai_confidence: null,
-          reconciled_record_id: null,
-          match_group_id: null,
-          resolved_by_email: null,
-          resolved_at: null,
-        })
-        .eq("company_id", companyId)
-        .eq("manually_reconciled", false);
-      if (tErr) throw tErr;
+      // Scope every clear to the selected account (and period when given), so
+      // other accounts / periods keep their reconciliation.
+      const txnQuery = () => {
+        let q = db
+          .from("bank_transactions")
+          .select("id, txn_ref, match_group_id")
+          .eq("company_id", companyId)
+          .eq("bank_account_id", accountId);
+        if (from) q = q.gte("txn_date", from);
+        if (to) q = q.lte("txn_date", to);
+        return q;
+      };
+      const recQuery = () => {
+        let q = db
+          .from("accounting_records")
+          .select("id, doc_number, match_group_id")
+          .eq("company_id", companyId)
+          .eq("bank_account_id", accountId);
+        if (from) q = q.gte("doc_date", from);
+        if (to) q = q.lte("doc_date", to);
+        return q;
+      };
 
-      await db
-        .from("accounting_records")
-        .update({
-          status: "open",
-          match_group_id: null,
-          reconciled_txn_id: null,
-          resolved_by_email: null,
-          resolved_at: null,
-        })
-        .eq("company_id", companyId);
+      const [txnRes, recRes] = await Promise.all([txnQuery(), recQuery()]);
+      const txnRows = (txnRes.data ?? []) as {
+        id: string;
+        txn_ref: string;
+        match_group_id: string | null;
+      }[];
+      const recRows = (recRes.data ?? []) as {
+        id: string;
+        doc_number: string;
+        match_group_id: string | null;
+      }[];
+      const txnIds = txnRows.map((r) => r.id);
+      const recIds = recRows.map((r) => r.id);
 
-      await db.from("match_groups").delete().eq("company_id", companyId);
+      if (txnIds.length) {
+        const { error: tErr } = await db
+          .from("bank_transactions")
+          .update({
+            status: "unreconciled",
+            category: null,
+            ai_confidence: null,
+            reconciled_record_id: null,
+            match_group_id: null,
+            manually_reconciled: false,
+            resolved_by_email: null,
+            resolved_at: null,
+            rejection_reason: null,
+          })
+          .in("id", txnIds);
+        if (tErr) throw tErr;
+      }
 
-      const { error: sErr } = await db
-        .from("match_suggestions")
-        .delete()
-        .eq("company_id", companyId);
-      if (sErr) throw sErr;
+      if (recIds.length) {
+        const { error: rErr } = await db
+          .from("accounting_records")
+          .update({
+            status: "open",
+            match_group_id: null,
+            reconciled_txn_id: null,
+            resolved_by_email: null,
+            resolved_at: null,
+          })
+          .in("id", recIds);
+        if (rErr) throw rErr;
+      }
+
+      const groupIds = Array.from(
+        new Set(
+          [...txnRows, ...recRows].map((r) => r.match_group_id).filter(Boolean) as string[],
+        ),
+      );
+      if (groupIds.length) await db.from("match_groups").delete().in("id", groupIds);
+
+      if (txnIds.length) {
+        const { error: sErr } = await db
+          .from("match_suggestions")
+          .delete()
+          .in("bank_transaction_id", txnIds);
+        if (sErr) throw sErr;
+      }
+
+      // Re-open any carried-forward open items whose mirror rows were cleared.
+      const openIds = [...txnRows.map((r) => r.txn_ref), ...recRows.map((r) => r.doc_number)]
+        .filter((ref) => isOpenItemRef(ref))
+        .map((ref) => ref.slice(OPEN_ITEM_REF_PREFIX.length));
+      if (openIds.length)
+        await db.from("open_items").update({ status: "open" }).in("id", openIds);
 
       setActiveStat("total");
       await loadData();
@@ -971,6 +1033,7 @@ function ReconciliationPage() {
       setRunning(false);
     }
   }
+
 
   async function signOut() {
     await supabase.auth.signOut();
