@@ -1455,6 +1455,73 @@ function ReconciliationPage() {
           }
         }}
       />
+
+      {resetOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="w-full max-w-md rounded-lg border border-border-strong bg-card shadow-xl">
+            <div className="border-b border-border-strong px-4 py-3">
+              <h2 className="text-sm font-semibold">Reset reconciliation</h2>
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                Clears every match (manual, auto and AI-suggested) for{" "}
+                <span className="font-medium text-foreground">
+                  {account ? `${account.bank_name} · ${account.account_number}` : "this account"}
+                </span>{" "}
+                only. Leave the dates empty to reset all periods on this account.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-3 px-4 py-3">
+              <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                From
+                <input
+                  type="date"
+                  value={resetFrom}
+                  onChange={(e) => setResetFrom(e.target.value)}
+                  className="mt-1 w-full rounded-md border border-border-strong bg-background px-2 py-1.5 text-xs outline-none focus:border-primary"
+                />
+              </label>
+              <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                To
+                <input
+                  type="date"
+                  value={resetTo}
+                  onChange={(e) => setResetTo(e.target.value)}
+                  className="mt-1 w-full rounded-md border border-border-strong bg-background px-2 py-1.5 text-xs outline-none focus:border-primary"
+                />
+              </label>
+            </div>
+            <div className="flex items-center justify-end gap-2 border-t border-border-strong px-4 py-3">
+              <button
+                type="button"
+                onClick={() => setResetOpen(false)}
+                className="rounded-md border border-border-strong px-3 py-1.5 text-[11px] font-semibold hover:bg-muted"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (
+                    settings.confirmDestructive &&
+                    !window.confirm(
+                      "This clears all reconciliation for the selected account and period. Continue?",
+                    )
+                  )
+                    return;
+                  void runReset(resetFrom, resetTo);
+                }}
+                className="rounded-md bg-destructive px-3 py-1.5 text-[11px] font-semibold text-destructive-foreground hover:opacity-90"
+              >
+                Reset period
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
+
   );
 }
