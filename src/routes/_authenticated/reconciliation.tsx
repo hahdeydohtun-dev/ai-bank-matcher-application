@@ -108,6 +108,9 @@ function ReconciliationPage() {
   const [importOpen, setImportOpen] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetFrom, setResetFrom] = useState("");
+  const [resetTo, setResetTo] = useState("");
   const [live, setLive] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [matchWeightsRow, setMatchWeightsRow] = useState<MatchingWeightsRow | null>(null);
