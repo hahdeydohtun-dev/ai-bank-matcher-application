@@ -1,5 +1,7 @@
 /** Helpers used by the connection-test server function (kept out of the fn module). */
 
+import { assertSafeOutboundUrl } from "@/lib/recon/urlGuard.server-lib";
+
 export function buildAuthHeaders(params: {
   authType: string;
   apiKey: string;
