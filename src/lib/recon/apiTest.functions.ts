@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { extractRows } from "@/lib/recon/bankApi.parse";
 import { buildAuthHeaders, probeEndpoint } from "@/lib/recon/apiTest.server-lib";
+import { assertCompanyAdmin } from "@/lib/recon/roleGuard.server-lib";
 
 export type TestConnectionInput = {
   companyId: string;
