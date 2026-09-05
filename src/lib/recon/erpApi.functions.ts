@@ -24,8 +24,9 @@ export const fetchErpLedger = createServerFn({ method: "POST" })
     return input;
   })
   .handler(async ({ data, context }) => {
-    const { supabase } = context;
+    const { supabase, userId } = context;
     const { companyId, bankAccountId, periodStart, periodEnd } = data;
+    await assertCompanyAdmin(supabase, companyId, userId);
 
     const { data: configRow, error: configErr } = await supabase
       .from("erp_api_connections")
