@@ -29,7 +29,8 @@ export const testApiConnection = createServerFn({ method: "POST" })
     return input;
   })
   .handler(async ({ data, context }): Promise<TestConnectionResult> => {
-    const { supabase } = context;
+    const { supabase, userId } = context;
+    await assertCompanyAdmin(supabase, data.companyId, userId);
     const table = data.kind === "bank" ? "bank_api_connections" : "erp_api_connections";
     const started = Date.now();
 
