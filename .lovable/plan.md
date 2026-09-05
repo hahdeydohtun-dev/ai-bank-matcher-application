@@ -26,3 +26,16 @@ Call sites (validate on every request, before `fetch`):
 - `src/components/recon/ApiIntegrationTab.tsx` and `ErpIntegrationSection.tsx`: keep the existing client-side URL check and extend the error copy to mention https-only public addresses (the server remains the enforcement point).
 
 After the change, mark the `ssrf_bank_erp_endpoint` finding as fixed.
+
+## Restrict who can set up connections (owner/admin only)
+
+Confirmed today: the access rules on `bank_api_connections` and `erp_api_connections` allow **any** company member (`private.is_company_member(company_id)`) to add, edit, or delete a connection — including the endpoint address. Narrowing this is the strongest part of the fix, because it removes the ability for a rank-and-file member to choose the address the server calls at all.
+
+Changes:
+
+- New helper `private.is_company_admin(_company_id uuid)` (SECURITY DEFINER, `search_path = public`) returning true when the caller's row in `company_members` has role `owner` or `admin`. Not granted to `anon`; execute granted to `authenticated`.
+- Replace the INSERT/UPDATE/DELETE policies on both connection tables so they use `private.is_company_admin(company_id)`. SELECT stays member-wide so everyone can still see connection status (no credentials are exposed to the browser today).
+- Server side: `testApiConnection`, `fetchBankStatement`, and `fetchErpLedger` re-check the caller's role via `context.supabase` before doing any outbound call, returning "Only company owners and admins can configure or test integrations." otherwise. This keeps the RPC endpoints safe even though the UI hides the controls.
+- UI: in `ApiIntegrationTab.tsx` and `ErpIntegrationSection.tsx`, load the current user's role for the company and hide Add/Edit/Remove/Test buttons for plain members, showing a short note that only owners and admins can change integration settings.
+
+Order of work: role restriction migration first, then the URL guard, then mark the finding fixed.
