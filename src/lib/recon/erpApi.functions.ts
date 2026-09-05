@@ -2,6 +2,8 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { extractRows, flattenRow, pick, toDate, toNumber } from "@/lib/recon/bankApi.parse";
 import { guardIngestPeriod, isCovered } from "@/lib/recon/ingestGuard";
+import { assertSafeOutboundUrl } from "@/lib/recon/urlGuard.server-lib";
+import { assertCompanyAdmin } from "@/lib/recon/roleGuard.server-lib";
 
 export type FetchLedgerInput = {
   companyId: string;
@@ -22,8 +24,9 @@ export const fetchErpLedger = createServerFn({ method: "POST" })
     return input;
   })
   .handler(async ({ data, context }) => {
-    const { supabase } = context;
+    const { supabase, userId } = context;
     const { companyId, bankAccountId, periodStart, periodEnd } = data;
+    await assertCompanyAdmin(supabase, companyId, userId);
 
     const { data: configRow, error: configErr } = await supabase
       .from("erp_api_connections")
@@ -66,12 +69,7 @@ export const fetchErpLedger = createServerFn({ method: "POST" })
         if (apiKey) headers.set("Authorization", `Bearer ${apiKey}`);
     }
 
-    let url: URL;
-    try {
-      url = new URL(configRow.endpoint_url);
-    } catch {
-      throw new Error("The configured ERP endpoint URL is not valid.");
-    }
+    const url = assertSafeOutboundUrl(configRow.endpoint_url);
     url.searchParams.set("from", periodStart);
     url.searchParams.set("to", periodEnd);
     if (configRow.gl_account_code) url.searchParams.set("account", configRow.gl_account_code);

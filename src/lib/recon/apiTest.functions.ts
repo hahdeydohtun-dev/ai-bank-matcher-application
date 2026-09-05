@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { extractRows } from "@/lib/recon/bankApi.parse";
 import { buildAuthHeaders, probeEndpoint } from "@/lib/recon/apiTest.server-lib";
+import { assertCompanyAdmin } from "@/lib/recon/roleGuard.server-lib";
 
 export type TestConnectionInput = {
   companyId: string;
@@ -28,7 +29,8 @@ export const testApiConnection = createServerFn({ method: "POST" })
     return input;
   })
   .handler(async ({ data, context }): Promise<TestConnectionResult> => {
-    const { supabase } = context;
+    const { supabase, userId } = context;
+    await assertCompanyAdmin(supabase, data.companyId, userId);
     const table = data.kind === "bank" ? "bank_api_connections" : "erp_api_connections";
     const started = Date.now();
 

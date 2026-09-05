@@ -1,5 +1,7 @@
 /** Helpers used by the connection-test server function (kept out of the fn module). */
 
+import { assertSafeOutboundUrl } from "@/lib/recon/urlGuard.server-lib";
+
 export function buildAuthHeaders(params: {
   authType: string;
   apiKey: string;
@@ -37,9 +39,14 @@ export async function probeEndpoint(params: {
 }): Promise<{ ok: boolean; status: number | null; message: string; payload: unknown }> {
   let url: URL;
   try {
-    url = new URL(params.endpoint);
-  } catch {
-    return { ok: false, status: null, message: "The endpoint URL is not valid.", payload: null };
+    url = assertSafeOutboundUrl(params.endpoint);
+  } catch (err) {
+    return {
+      ok: false,
+      status: null,
+      message: err instanceof Error ? err.message : "The endpoint URL is not valid.",
+      payload: null,
+    };
   }
   url.searchParams.set("from", params.from);
   url.searchParams.set("to", params.to);
