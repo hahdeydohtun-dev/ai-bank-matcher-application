@@ -71,12 +71,7 @@ export const fetchBankStatement = createServerFn({ method: "POST" })
         if (apiKey) headers.set("Authorization", `Bearer ${apiKey}`);
     }
 
-    let url: URL;
-    try {
-      url = new URL(configRow.endpoint_url);
-    } catch {
-      throw new Error("The configured endpoint URL is not valid.");
-    }
+    const url = assertSafeOutboundUrl(configRow.endpoint_url);
     url.searchParams.set("from", periodStart);
     url.searchParams.set("to", periodEnd);
 
