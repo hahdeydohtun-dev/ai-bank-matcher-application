@@ -26,6 +26,7 @@ export const fetchBankStatement = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const { companyId, bankAccountId, periodStart, periodEnd } = data;
+    await assertCompanyAdmin(supabase, companyId, userId);
 
     // Membership + link check runs as the user, under RLS.
     const { data: configRow, error: configErr } = await supabase
