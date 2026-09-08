@@ -4,6 +4,7 @@ import { db, type BankAccount, type Company } from "@/lib/recon/db";
 import { useSettings } from "@/lib/recon/settings";
 import { ErpIntegrationSection } from "@/components/recon/ErpIntegrationSection";
 import { testApiConnection, type TestConnectionResult } from "@/lib/recon/apiTest.functions";
+import { useAdminCompanies } from "@/lib/recon/useAdminCompanies";
 
 type LinkRow = { bank_account_id: string; company_id: string };
 
@@ -55,6 +56,7 @@ export function ApiIntegrationTab() {
     Record<string, TestConnectionResult & { error?: string }>
   >({});
   const runTest = useServerFn(testApiConnection);
+  const { isAdmin } = useAdminCompanies();
 
   async function testConnection(accountId: string, companyId: string) {
     setTesting(accountId);
@@ -144,9 +146,12 @@ export function ApiIntegrationTab() {
       if (!draft.companyId) throw new Error("Pick the company this connection belongs to.");
       if (!draft.endpoint_url.trim()) throw new Error("Enter the bank portal endpoint URL.");
       try {
-        new URL(draft.endpoint_url.trim());
+        const u = new URL(draft.endpoint_url.trim());
+        if (u.protocol !== "https:") throw new Error("not https");
       } catch {
-        throw new Error("The endpoint URL is not a valid absolute URL.");
+        throw new Error(
+          "Enter a full public web address for the bank portal, starting with https://",
+        );
       }
       let headers: Record<string, string> = {};
       if (draft.extra_headers.trim()) {
@@ -258,6 +263,9 @@ export function ApiIntegrationTab() {
           {accounts.map((a) => {
             const conn = connByAccount[a.id];
             const isEditing = editing === a.id && draft;
+            const scopeCompany =
+              conn?.company_id ?? a.company_id ?? (companiesForAccount[a.id] ?? [])[0] ?? null;
+            const canManage = isAdmin(scopeCompany);
             return (
               <div key={a.id} className="rounded-lg border border-border p-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -276,15 +284,22 @@ export function ApiIntegrationTab() {
                     </p>
                   </div>
                   <div className="flex gap-2">
-                    <button
-                      onClick={() =>
-                        isEditing ? (setEditing(null), setDraft(null)) : startEdit(a)
-                      }
-                      className="rounded-md border border-border-strong px-2.5 py-1 text-[11px] font-semibold hover:border-primary"
-                    >
-                      {isEditing ? "Cancel" : conn ? "Edit connection" : "Add connection"}
-                    </button>
-                    {conn && (
+                    {!canManage && (
+                      <p className="text-[11px] text-muted-foreground">
+                        Only company owners and admins can change integration settings.
+                      </p>
+                    )}
+                    {canManage && (
+                      <button
+                        onClick={() =>
+                          isEditing ? (setEditing(null), setDraft(null)) : startEdit(a)
+                        }
+                        className="rounded-md border border-border-strong px-2.5 py-1 text-[11px] font-semibold hover:border-primary"
+                      >
+                        {isEditing ? "Cancel" : conn ? "Edit connection" : "Add connection"}
+                      </button>
+                    )}
+                    {conn && canManage && (
                       <button
                         onClick={() => void testConnection(a.id, conn.company_id)}
                         disabled={testing === a.id}
@@ -293,7 +308,7 @@ export function ApiIntegrationTab() {
                         {testing === a.id ? "Testing…" : "Test bank connection"}
                       </button>
                     )}
-                    {conn && (
+                    {conn && canManage && (
                       <button
                         onClick={() => void remove(a.id)}
                         disabled={busy}
