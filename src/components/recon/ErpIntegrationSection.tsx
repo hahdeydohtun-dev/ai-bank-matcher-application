@@ -3,6 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { db, type BankAccount, type Company } from "@/lib/recon/db";
 import { useSettings } from "@/lib/recon/settings";
 import { testApiConnection, type TestConnectionResult } from "@/lib/recon/apiTest.functions";
+import { useAdminCompanies } from "@/lib/recon/useAdminCompanies";
 
 export type ErpConnection = {
   id: string;
@@ -64,6 +65,7 @@ export function ErpIntegrationSection() {
   const [testing, setTesting] = useState<string | null>(null);
   const [testResults, setTestResults] = useState<Record<string, TestConnectionResult>>({});
   const runTest = useServerFn(testApiConnection);
+  const { isAdmin } = useAdminCompanies();
 
   async function testConnection(accountId: string, companyId: string) {
     setTesting(accountId);
@@ -154,9 +156,10 @@ export function ErpIntegrationSection() {
       if (!draft.companyId) throw new Error("Pick the company this connection belongs to.");
       if (!draft.endpoint_url.trim()) throw new Error("Enter the ERP ledger endpoint URL.");
       try {
-        new URL(draft.endpoint_url.trim());
+        const u = new URL(draft.endpoint_url.trim());
+        if (u.protocol !== "https:") throw new Error("not https");
       } catch {
-        throw new Error("The endpoint URL is not a valid absolute URL.");
+        throw new Error("Enter a full public web address for the ERP, starting with https://");
       }
       if (!draft.gl_account_code.trim())
         throw new Error("Enter the ERP GL/cash account code mapped to this bank account.");
@@ -269,6 +272,9 @@ export function ErpIntegrationSection() {
           {accounts.map((a) => {
             const conn = connByAccount[a.id];
             const isEditing = editing === a.id && draft;
+            const scopeCompany =
+              conn?.company_id ?? a.company_id ?? (companiesForAccount[a.id] ?? [])[0] ?? null;
+            const canManage = isAdmin(scopeCompany);
             return (
               <div key={a.id} className="rounded-lg border border-border p-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -289,15 +295,22 @@ export function ErpIntegrationSection() {
                     </p>
                   </div>
                   <div className="flex gap-2">
-                    <button
-                      onClick={() =>
-                        isEditing ? (setEditing(null), setDraft(null)) : startEdit(a)
-                      }
-                      className="rounded-md border border-border-strong px-2.5 py-1 text-[11px] font-semibold hover:border-primary"
-                    >
-                      {isEditing ? "Cancel" : conn ? "Edit ERP connection" : "Add ERP connection"}
-                    </button>
-                    {conn && (
+                    {!canManage && (
+                      <p className="text-[11px] text-muted-foreground">
+                        Only company owners and admins can change integration settings.
+                      </p>
+                    )}
+                    {canManage && (
+                      <button
+                        onClick={() =>
+                          isEditing ? (setEditing(null), setDraft(null)) : startEdit(a)
+                        }
+                        className="rounded-md border border-border-strong px-2.5 py-1 text-[11px] font-semibold hover:border-primary"
+                      >
+                        {isEditing ? "Cancel" : conn ? "Edit ERP connection" : "Add ERP connection"}
+                      </button>
+                    )}
+                    {conn && canManage && (
                       <button
                         onClick={() => void testConnection(a.id, conn.company_id)}
                         disabled={testing === a.id}
@@ -306,7 +319,7 @@ export function ErpIntegrationSection() {
                         {testing === a.id ? "Testing…" : "Test ERP connection"}
                       </button>
                     )}
-                    {conn && (
+                    {conn && canManage && (
                       <button
                         onClick={() => void remove(a.id)}
                         disabled={busy}
