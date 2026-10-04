@@ -21,9 +21,6 @@ dist-ssr
 .dev.vars
 
 # Environment variables (never commit real secrets)
-.env
-.env.local
-.env.*.local
 
 # Editor directories and files
 .vscode/*
