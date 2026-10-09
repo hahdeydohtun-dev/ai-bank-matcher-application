@@ -23,7 +23,7 @@ export type ReconSettings = {
 };
 
 export const DEFAULT_SETTINGS: ReconSettings = {
-  theme: "navy",
+  theme: "light",
   density: "comfortable",
   autoThreshold: 85,
   reviewThreshold: 60,
