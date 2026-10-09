@@ -1,0 +1,19 @@
+import { useMemo, useState } from "react";
+import { ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import type { AccountingRecord } from "@/lib/recon/db";
+import { formatAmount, formatDate, TONE_CLASS } from "@/lib/recon/format";
+
+export function RecordTable({ records, currency, pageSize }: { records: AccountingRecord[]; currency: string; pageSize: number }) {
+  const [query, setQuery] = useState("");
+  const [status, setStatus] = useState("all");
+  const [page, setPage] = useState(0);
+  const rows = useMemo(() => records.filter(r => (status === "all" || (r.status ?? "open") === status) && `${r.doc_number} ${r.party_name ?? ""} ${r.doc_type ?? ""} ${r.meta?.remarks ?? r.meta?.Remarks ?? ""}`.toLowerCase().includes(query.toLowerCase())), [records, status, query]);
+  const size = Math.max(1, pageSize);
+  const current = Math.min(page, Math.max(0, Math.ceil(rows.length / size) - 1));
+  return <section aria-label="ERP vouchers">
+    <div className="flex flex-wrap items-center gap-2 py-3"><div className="relative min-w-48 flex-1"><Search className="absolute left-2.5 top-2 size-3.5 text-muted-foreground" /><input aria-label="Search ERP vouchers" type="search" className="field pl-8" placeholder="Search voucher or party…" value={query} onChange={e => { setQuery(e.target.value); setPage(0); }} /></div><select aria-label="ERP voucher status" className="field w-auto" value={status} onChange={e => {setStatus(e.target.value);setPage(0);}}><option value="all">All statuses</option>{Array.from(new Set(records.map(r => r.status ?? "open"))).map(s => <option key={s} value={s}>{s}</option>)}</select></div>
+    <div className="erp-grid-scroll"><table className="erp-grid"><thead><tr><th>Date</th><th>Voucher reference</th><th>Type</th><th>Party / remarks</th><th className="text-right">Debit</th><th className="text-right">Credit</th><th className="text-right">Balance</th><th>Status</th><th>Resolved by</th></tr></thead><tbody>{rows.slice(current * size, (current + 1) * size).map(r => <tr key={r.id}><td>{formatDate(r.doc_date)}</td><td className="mono text-primary">{r.doc_number}</td><td>{r.doc_type || "—"}</td><td className="max-w-64"><p className="truncate" title={r.party_name || undefined}>{r.party_name || "—"}</p><p className="truncate text-[11px] text-muted-foreground">{String(r.meta?.remarks ?? r.meta?.Remarks ?? "")}</p></td><td className="mono text-right">{r.side === "debit" ? formatAmount(r.amount, currency) : "—"}</td><td className="mono text-right">{r.side === "credit" ? formatAmount(r.amount, currency) : "—"}</td><td className="mono text-right">{r.balance === null ? "—" : formatAmount(r.balance, currency)}</td><td><span className={`rounded border px-1.5 py-0.5 text-[10px] ${r.status === "reconciled" ? TONE_CLASS.success : TONE_CLASS.muted}`}>{r.status ?? "open"}</span></td><td className="text-muted-foreground">{r.resolved_by_email || "—"}</td></tr>)}{!rows.length && <tr><td colSpan={9} className="h-36 text-center text-muted-foreground">No ERP vouchers match the current filters.</td></tr>}</tbody></table></div>
+    <div className="flex items-center justify-between border-b border-border py-2 text-xs text-muted-foreground"><span>{rows.length} vouchers · {currency}</span><div className="flex items-center gap-2"><Button variant="ghost" size="icon" aria-label="Previous voucher page" disabled={current === 0} onClick={() => setPage(current - 1)}><ChevronLeft /></Button><span>Page {current + 1} of {Math.max(1, Math.ceil(rows.length / size))}</span><Button variant="ghost" size="icon" aria-label="Next voucher page" disabled={(current + 1) * size >= rows.length} onClick={() => setPage(current + 1)}><ChevronRight /></Button></div></div>
+  </section>;
+}
