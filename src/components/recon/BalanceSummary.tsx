@@ -12,6 +12,6 @@ export function BalanceSummary({ companyId, account, currency, transactions, rec
   return <section aria-label="Reconciliation balances" className="grid gap-3 border-y border-border bg-surface px-4 py-3 sm:grid-cols-3">
     <div><p className="caption">Closing balance · bank statement</p><p className="mono mt-1 text-base font-semibold">{!loading && report ? formatAmount(report.bank_statement_balance, currency) : "—"}</p></div>
     <div><p className="caption">Closing balance · ERP / general ledger</p><p className="mono mt-1 text-base font-semibold">{!loading && report ? formatAmount(report.gl_balance, currency) : "—"}</p></div>
-    <div><p className="caption">Difference · bank minus ERP</p><p className={`mono mt-1 text-base font-semibold ${difference === 0 ? "text-success" : "text-destructive"}`}>{!loading && difference !== null ? formatAmount(difference, currency) : "—"}</p></div>
+    <div><p className="caption">Difference · bank minus ERP</p><p className={`mono mt-1 text-base font-semibold ${difference === null ? "" : Math.abs(difference) < 0.005 ? "text-success" : "text-destructive"}`}>{!loading && difference !== null ? formatAmount(difference, currency) : "—"}</p></div>
   </section>;
 }

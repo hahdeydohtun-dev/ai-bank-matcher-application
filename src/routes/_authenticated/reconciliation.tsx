@@ -21,6 +21,9 @@ import {
 } from "@/lib/recon/matchDecisions";
 import { StatCards, type StatKey } from "@/components/recon/StatCards";
 import { TransactionList } from "@/components/recon/TransactionList";
+import { ErpHeader } from "@/components/recon/ErpHeader";
+import { BalanceSummary } from "@/components/recon/BalanceSummary";
+import { RecordTable } from "@/components/recon/RecordTable";
 import { SuggestionsPanel } from "@/components/recon/SuggestionsPanel";
 import { ImportCsvDialog } from "@/components/recon/ImportCsvDialog";
 import { DataSetsPanel } from "@/components/recon/DataSetsPanel";
@@ -92,7 +95,7 @@ function ReconciliationPage() {
   const [transactions, setTransactions] = useState<BankTransaction[]>([]);
   const [suggestions, setSuggestions] = useState<MatchSuggestion[]>([]);
   const [batches, setBatches] = useState<ImportBatch[]>([]);
-  const [view, setView] = useState<"list" | "board">("list");
+  const [view, setView] = useState<"list" | "erp" | "board" | "history">("list");
   const [createMode, setCreateMode] = useState<CreateMode>(null);
   const [rejectPrompt, setRejectPrompt] = useState<RejectPrompt | null>(null);
 
@@ -1050,57 +1053,26 @@ function ReconciliationPage() {
   const period =
     fromDate || toDate ? `${fromDate || "start"} → ${toDate || "today"}` : "All periods";
 
+  const historyRows = scoped.filter(
+    (t) => t.status === "reconciled" || t.status === "rejected" || !!t.resolved_at,
+  );
+
   return (
-    <div className="min-h-screen bg-background">
-      {/* top bar */}
-      <header className="border-b border-border bg-surface">
-        <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3">
-          <p className="caption">Accounting → Bank Reconciliation Tool</p>
-          <div className="flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
-            <span className="flex items-center gap-1.5">
-              <span className={`h-2 w-2 rounded-full ${live ? "bg-success" : "bg-warning"}`} />
-              {live ? "Live sync on" : "Connecting…"}
-            </span>
-            <span className="mono">
-              {company?.name ?? "—"} · {currency}
-            </span>
-            <span className="mono">{email}</span>
-            <Link
-              to="/select-company"
-              search={{ force: "1" }}
-              className="rounded-md border border-border-strong px-2 py-1 hover:border-primary hover:text-primary"
-            >
-              Switch company
-            </Link>
-            <Link
-              to="/reports"
-              className="rounded-md border border-border-strong px-2 py-1 hover:border-primary hover:text-primary"
-            >
-              Reports
-            </Link>
-            <Link
-              to="/control-panel"
-              className="rounded-md border border-border-strong px-2 py-1 hover:border-primary hover:text-primary"
-            >
-              Control panel
-            </Link>
+    <div className="erp-workspace min-h-screen bg-background">
+      <ErpHeader
+        email={email}
+        live={live}
+        liveEnabled
+        companyName={company ? `${company.name} · ${currency}` : undefined}
+        onSignOut={() => void signOut()}
+      />
 
-            <button
-              onClick={signOut}
-              className="rounded-md border border-border-strong px-2 py-1 hover:border-destructive hover:text-destructive"
-            >
-              Sign out
-            </button>
-          </div>
-        </div>
-      </header>
-
-      <div className="flex flex-col gap-4 p-5 xl:flex-row">
+      <div className="flex flex-col gap-4 p-4 xl:flex-row">
         {/* main column */}
-        <main className="min-w-0 flex-1 space-y-4">
+        <main className="min-w-0 flex-1 space-y-3">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div className="min-w-0">
-              <h1 className="text-2xl font-semibold tracking-tight">Bank Reconciliation</h1>
+              <h1 className="text-lg font-semibold">Bank Reconciliation Tool</h1>
               {/* Breadcrumb: Company › Bank Account › Period. Each segment is a
                   live selector — Company/Account jump the dropdowns into focus,
                   Period clears the date range. */}
@@ -1141,42 +1113,29 @@ function ReconciliationPage() {
               </nav>
             </div>
             <div className="flex flex-wrap gap-2">
-              <div className="flex overflow-hidden rounded-lg border border-border-strong">
-                {(["list", "board"] as const).map((v) => (
-                  <button
-                    key={v}
-                    onClick={() => setView(v)}
-                    className={`px-3 py-2 text-xs font-semibold ${
-                      view === v ? "bg-primary text-primary-foreground" : "text-muted-foreground"
-                    }`}
-                  >
-                    {v === "list" ? "Transaction list" : "Match board"}
-                  </button>
-                ))}
-              </div>
               <button
                 onClick={() => setShowDataSets((v) => !v)}
-                className="rounded-lg border border-border-strong px-3 py-2 text-xs font-semibold hover:border-primary"
+                className="rounded border border-border-strong bg-surface px-2.5 py-1.5 text-xs font-semibold hover:border-primary"
               >
                 Data sets ({batches.length})
               </button>
               <button
                 onClick={() => setImportOpen(true)}
-                className="rounded-lg border border-border-strong px-3 py-2 text-xs font-semibold hover:border-primary"
+                className="rounded border border-border-strong bg-surface px-2.5 py-1.5 text-xs font-semibold hover:border-primary"
               >
                 Import data
               </button>
               <button
                 onClick={resetWorkspace}
                 disabled={running}
-                className="rounded-lg border border-border-strong px-3 py-2 text-xs font-semibold hover:border-destructive hover:text-destructive disabled:opacity-50"
+                className="rounded border border-border-strong bg-surface px-2.5 py-1.5 text-xs font-semibold hover:border-destructive hover:text-destructive disabled:opacity-50"
               >
                 Reset
               </button>
               <button
                 onClick={runAiSuggest}
                 disabled={running}
-                className="rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
+                className="rounded bg-primary px-2.5 py-1.5 text-xs font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
               >
                 {running ? "Working…" : "AI Suggest"}
               </button>
@@ -1188,14 +1147,14 @@ function ReconciliationPage() {
                     ? `Last recalibrated from ${matchWeightsRow.sample_size} decisions`
                     : "Learns matching weights from your team's accept/reject history"
                 }
-                className="rounded-lg border border-border-strong px-3 py-2 text-xs font-semibold hover:border-primary disabled:opacity-50"
+                className="rounded border border-border-strong bg-surface px-2.5 py-1.5 text-xs font-semibold hover:border-primary disabled:opacity-50"
               >
                 {recalibrating ? "Recalibrating…" : "Recalibrate weights"}
               </button>
               <button
                 onClick={bulkApproveAuto}
                 disabled={running || !pendingAuto.length}
-                className="rounded-lg bg-success px-3 py-2 text-xs font-semibold text-success-foreground hover:opacity-90 disabled:opacity-40"
+                className="rounded bg-success px-2.5 py-1.5 text-xs font-semibold text-success-foreground hover:opacity-90 disabled:opacity-40"
               >
                 Bulk Approve Auto ({pendingAuto.length})
               </button>
@@ -1209,7 +1168,7 @@ function ReconciliationPage() {
           )}
 
           {/* filters */}
-          <div className="panel grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="panel grid gap-2 p-3 sm:grid-cols-2 lg:grid-cols-5">
             <div>
               <label className="caption" htmlFor="recon-company-select">
                 Company
@@ -1322,24 +1281,66 @@ function ReconciliationPage() {
             onSelect={setActiveStat}
           />
 
+          <BalanceSummary
+            companyId={companyId}
+            account={account ?? null}
+            currency={currency}
+            transactions={scoped}
+            records={records}
+            fromDate={fromDate}
+            toDate={toDate}
+            loading={switching}
+          />
+
+          <nav aria-label="Workspace tabs" className="flex gap-5 overflow-x-auto border-b border-border text-xs">
+            {([
+              ["list", "Bank transactions", visible.length],
+              ["erp", "ERP vouchers", records.length],
+              ["board", "AI match pairs", scoped.filter((t) => suggestionMap[t.id]).length],
+              ["history", "Audit trail", historyRows.length],
+            ] as const).map(([key, label, n]) => (
+              <button
+                key={key}
+                type="button"
+                aria-current={view === key ? "page" : undefined}
+                onClick={() => setView(key)}
+                className={`-mb-px flex h-9 shrink-0 items-center gap-1.5 border-b-2 ${view === key ? "border-primary font-semibold text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+              >
+                {label}
+                <span className="mono rounded bg-muted px-1.5 text-[10px] text-muted-foreground">{n}</span>
+              </button>
+            ))}
+          </nav>
+
           {switching ? (
             <div className="panel space-y-2 p-4" aria-busy="true" aria-live="polite">
               <p className="caption">Loading data for the selected bank account…</p>
               <div className="h-6 w-1/3 animate-pulse rounded bg-muted" />
               <div className="h-24 w-full animate-pulse rounded bg-muted" />
-              <div className="h-24 w-full animate-pulse rounded bg-muted" />
-              <div className="h-24 w-full animate-pulse rounded bg-muted" />
             </div>
-          ) : view === "list" ? (
+          ) : view === "list" || view === "history" ? (
             <TransactionList
-              transactions={visible}
+              key={view}
+              history={view === "history"}
+              transactions={view === "history" ? historyRows : visible}
               currency={currency}
               selectedId={selectedId}
+              suggestions={suggestionMap}
+              records={recordMap}
+              pageSize={settings.pageSize}
+              running={running}
+              busyId={busyId}
+              onAccept={(txn) => void resolve(txn, true)}
+              onReject={(txn) => setRejectPrompt({ scope: "single", ids: [txn.id] })}
+              onBulkAccept={(ids) => void bulkResolveSelected(ids, true)}
+              onBulkReject={(ids) => ids.length && setRejectPrompt({ scope: "bulk", ids })}
               onSelect={(id) => {
                 setSelectedId(id);
                 setPanelOpen(true);
               }}
             />
+          ) : view === "erp" ? (
+            <RecordTable records={records} currency={currency} pageSize={settings.pageSize} />
           ) : (
             <MatchBoard
               transactions={scoped}
