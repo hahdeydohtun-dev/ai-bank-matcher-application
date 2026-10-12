@@ -1322,24 +1322,66 @@ function ReconciliationPage() {
             onSelect={setActiveStat}
           />
 
+          <BalanceSummary
+            companyId={companyId}
+            account={account ?? null}
+            currency={currency}
+            transactions={scoped}
+            records={records}
+            fromDate={fromDate}
+            toDate={toDate}
+            loading={switching}
+          />
+
+          <nav aria-label="Workspace tabs" className="flex gap-5 overflow-x-auto border-b border-border text-xs">
+            {([
+              ["list", "Bank transactions", visible.length],
+              ["erp", "ERP vouchers", records.length],
+              ["board", "AI match pairs", scoped.filter((t) => suggestionMap[t.id]).length],
+              ["history", "Audit trail", historyRows.length],
+            ] as const).map(([key, label, n]) => (
+              <button
+                key={key}
+                type="button"
+                aria-current={view === key ? "page" : undefined}
+                onClick={() => setView(key)}
+                className={`-mb-px flex h-9 shrink-0 items-center gap-1.5 border-b-2 ${view === key ? "border-primary font-semibold text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+              >
+                {label}
+                <span className="mono rounded bg-muted px-1.5 text-[10px] text-muted-foreground">{n}</span>
+              </button>
+            ))}
+          </nav>
+
           {switching ? (
             <div className="panel space-y-2 p-4" aria-busy="true" aria-live="polite">
               <p className="caption">Loading data for the selected bank account…</p>
               <div className="h-6 w-1/3 animate-pulse rounded bg-muted" />
               <div className="h-24 w-full animate-pulse rounded bg-muted" />
-              <div className="h-24 w-full animate-pulse rounded bg-muted" />
-              <div className="h-24 w-full animate-pulse rounded bg-muted" />
             </div>
-          ) : view === "list" ? (
+          ) : view === "list" || view === "history" ? (
             <TransactionList
-              transactions={visible}
+              key={view}
+              history={view === "history"}
+              transactions={view === "history" ? historyRows : visible}
               currency={currency}
               selectedId={selectedId}
+              suggestions={suggestionMap}
+              records={recordMap}
+              pageSize={settings.pageSize}
+              running={running}
+              busyId={busyId}
+              onAccept={(txn) => void resolve(txn, true)}
+              onReject={(txn) => setRejectPrompt({ scope: "single", ids: [txn.id] })}
+              onBulkAccept={(ids) => void bulkResolveSelected(ids, true)}
+              onBulkReject={(ids) => ids.length && setRejectPrompt({ scope: "bulk", ids })}
               onSelect={(id) => {
                 setSelectedId(id);
                 setPanelOpen(true);
               }}
             />
+          ) : view === "erp" ? (
+            <RecordTable records={records} currency={currency} pageSize={settings.pageSize} />
           ) : (
             <MatchBoard
               transactions={scoped}
