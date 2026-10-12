@@ -21,6 +21,9 @@ import {
 } from "@/lib/recon/matchDecisions";
 import { StatCards, type StatKey } from "@/components/recon/StatCards";
 import { TransactionList } from "@/components/recon/TransactionList";
+import { ErpHeader } from "@/components/recon/ErpHeader";
+import { BalanceSummary } from "@/components/recon/BalanceSummary";
+import { RecordTable } from "@/components/recon/RecordTable";
 import { SuggestionsPanel } from "@/components/recon/SuggestionsPanel";
 import { ImportCsvDialog } from "@/components/recon/ImportCsvDialog";
 import { DataSetsPanel } from "@/components/recon/DataSetsPanel";
@@ -92,7 +95,7 @@ function ReconciliationPage() {
   const [transactions, setTransactions] = useState<BankTransaction[]>([]);
   const [suggestions, setSuggestions] = useState<MatchSuggestion[]>([]);
   const [batches, setBatches] = useState<ImportBatch[]>([]);
-  const [view, setView] = useState<"list" | "board">("list");
+  const [view, setView] = useState<"list" | "erp" | "board" | "history">("list");
   const [createMode, setCreateMode] = useState<CreateMode>(null);
   const [rejectPrompt, setRejectPrompt] = useState<RejectPrompt | null>(null);
 
@@ -1110,42 +1113,29 @@ function ReconciliationPage() {
               </nav>
             </div>
             <div className="flex flex-wrap gap-2">
-              <div className="flex overflow-hidden rounded-lg border border-border-strong">
-                {(["list", "board"] as const).map((v) => (
-                  <button
-                    key={v}
-                    onClick={() => setView(v)}
-                    className={`px-3 py-2 text-xs font-semibold ${
-                      view === v ? "bg-primary text-primary-foreground" : "text-muted-foreground"
-                    }`}
-                  >
-                    {v === "list" ? "Transaction list" : "Match board"}
-                  </button>
-                ))}
-              </div>
               <button
                 onClick={() => setShowDataSets((v) => !v)}
-                className="rounded-lg border border-border-strong px-3 py-2 text-xs font-semibold hover:border-primary"
+                className="rounded border border-border-strong bg-surface px-2.5 py-1.5 text-xs font-semibold hover:border-primary"
               >
                 Data sets ({batches.length})
               </button>
               <button
                 onClick={() => setImportOpen(true)}
-                className="rounded-lg border border-border-strong px-3 py-2 text-xs font-semibold hover:border-primary"
+                className="rounded border border-border-strong bg-surface px-2.5 py-1.5 text-xs font-semibold hover:border-primary"
               >
                 Import data
               </button>
               <button
                 onClick={resetWorkspace}
                 disabled={running}
-                className="rounded-lg border border-border-strong px-3 py-2 text-xs font-semibold hover:border-destructive hover:text-destructive disabled:opacity-50"
+                className="rounded border border-border-strong bg-surface px-2.5 py-1.5 text-xs font-semibold hover:border-destructive hover:text-destructive disabled:opacity-50"
               >
                 Reset
               </button>
               <button
                 onClick={runAiSuggest}
                 disabled={running}
-                className="rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
+                className="rounded bg-primary px-2.5 py-1.5 text-xs font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
               >
                 {running ? "Working…" : "AI Suggest"}
               </button>
@@ -1157,14 +1147,14 @@ function ReconciliationPage() {
                     ? `Last recalibrated from ${matchWeightsRow.sample_size} decisions`
                     : "Learns matching weights from your team's accept/reject history"
                 }
-                className="rounded-lg border border-border-strong px-3 py-2 text-xs font-semibold hover:border-primary disabled:opacity-50"
+                className="rounded border border-border-strong bg-surface px-2.5 py-1.5 text-xs font-semibold hover:border-primary disabled:opacity-50"
               >
                 {recalibrating ? "Recalibrating…" : "Recalibrate weights"}
               </button>
               <button
                 onClick={bulkApproveAuto}
                 disabled={running || !pendingAuto.length}
-                className="rounded-lg bg-success px-3 py-2 text-xs font-semibold text-success-foreground hover:opacity-90 disabled:opacity-40"
+                className="rounded bg-success px-2.5 py-1.5 text-xs font-semibold text-success-foreground hover:opacity-90 disabled:opacity-40"
               >
                 Bulk Approve Auto ({pendingAuto.length})
               </button>
@@ -1178,7 +1168,7 @@ function ReconciliationPage() {
           )}
 
           {/* filters */}
-          <div className="panel grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="panel grid gap-2 p-3 sm:grid-cols-2 lg:grid-cols-5">
             <div>
               <label className="caption" htmlFor="recon-company-select">
                 Company
